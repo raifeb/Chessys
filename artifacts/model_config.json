@@ -1,0 +1,19 @@
+{
+  "model_name": "XGBoost + Platt Scaling",
+  "balanced_threshold": 0.2,
+  "brier_score": 0.08751929731130169,
+  "features": [
+    "material_balance",
+    "tactical_tension",
+    "hanging_pieces",
+    "king_openness",
+    "legal_moves_count",
+    "mobility_ratio",
+    "is_check",
+    "absolute_pins",
+    "has_queen_turn",
+    "has_queen_opp",
+    "player_elo",
+    "ply"
+  ]
+}
