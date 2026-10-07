@@ -7,7 +7,11 @@ ARTIFACTS_DIR: Path = ROOT_DIR / "artifacts"
 BIN_DIR: Path = ROOT_DIR / "bin"
 DATA_DIR: Path = ROOT_DIR / "data"
 
-STOCKFISH_PATH: Path = BIN_DIR / "stockfish-windows-x86-64-avx2.exe"
+STOCKFISH_PATH: Path = (
+    BIN_DIR / "stockfish-windows-x86-64-avx2.exe"
+    if (BIN_DIR / "stockfish-windows-x86-64-avx2.exe").is_file()
+    else ROOT_DIR.parent / "bin" / "stockfish-windows-x86-64-avx2.exe"
+)
 MODEL_PATH: Path = ARTIFACTS_DIR / "blunder_calibrated.joblib"
 FEATURE_NAMES_PATH: Path = ARTIFACTS_DIR / "feature_names.json"
 

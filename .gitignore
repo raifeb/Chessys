@@ -1,17 +1,21 @@
-﻿# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+*.dll
+*.dylib
 
 # C-extensions
 *.so
 
-# Distribution / packaging
-.Python
-env/
+# Distribution / packaging & Node
+node_modules/
+*/node_modules/
+dist/
+*/dist/
+dist-ssr/
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -24,6 +28,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.tsbuildinfo
 
 # Virtual Environments 
 venv/
@@ -31,14 +36,31 @@ ENV/
 env/
 .venv/
 
-# Binary Mesin & Executables 
+# Binary & Executables (Stockfish 100MB+ will be rejected by GitHub)
 bin/*.exe
 bin/stockfish*
 *.exe
 
+# Dataset (raw PGN & parquet files >1GB)
+data/
+*.parquet
+*.zst
+
+# Jupyter Checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
 # Configuration & Secrets
 .env
+.env.*
+!.env.example
 *.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
 # IDE & Editor configs
 .vscode/
@@ -55,5 +77,5 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Documentation / Drafts
 PRD*.md
-data/

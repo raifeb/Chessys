@@ -1,0 +1,14 @@
+[
+  "material_balance",
+  "tactical_tension",
+  "hanging_pieces",
+  "king_openness",
+  "legal_moves_count",
+  "mobility_ratio",
+  "is_check",
+  "absolute_pins",
+  "has_queen_turn",
+  "has_queen_opp",
+  "player_elo",
+  "ply"
+]
