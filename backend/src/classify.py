@@ -15,11 +15,17 @@ from src.extractor import extract_features, FEATURE_COLS
 logger = logging.getLogger(__name__)
 
 
+CP_LOSS_CAP: int = 1000
+
+
 def score_to_cp(score: chess.engine.Score, default: int = 0) -> int:
     if score.is_mate():
+        if score == chess.engine.MateGiven:
+            return 10000
         mate_moves = score.mate()
         return 10000 if (mate_moves is not None and mate_moves > 0) else -10000
-    return score.score(mate_score=10000) or default
+    val = score.score(mate_score=10000)
+    return default if val is None else val
 
 
 def classify_move(cp_loss: int) -> str:
@@ -140,7 +146,10 @@ def analyze_game_pipeline(
                     board, chess.engine.Limit(depth=ENGINE_DEPTH)
                 )
                 eval_after_turn = score_to_cp(next_eval_info["score"].pov(turn))
-                cp_loss = max(0, eval_before_turn - eval_after_turn)
+                if best_move_uci is not None and uci_str == best_move_uci:
+                    cp_loss = 0
+                else:
+                    cp_loss = min(CP_LOSS_CAP, max(0, eval_before_turn - eval_after_turn))
                 cp_eval_white = score_to_cp(next_eval_info["score"].white())
             except Exception as err:
                 logger.warning("Gagal menganalisis ply %d: %s", ply_idx, err)
