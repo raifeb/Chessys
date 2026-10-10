@@ -58,7 +58,7 @@ def analyze_game_pipeline(
     positions: list[dict[str, Any]] = []
 
     current_eval_info: Optional[chess.engine.InfoDict] = None
-    eval_cp_white = 20
+    eval_cp_white: Optional[int] = None
 
     if engine is not None:
         try:
@@ -82,8 +82,8 @@ def analyze_game_pipeline(
         "fen": board.fen(),
         "eval_cp": eval_cp_white,
         "cp_eval_white": eval_cp_white,
-        "cp_loss": 0,
-        "label": "Best Move",
+        "cp_loss": 0 if current_eval_info is not None else None,
+        "label": "Best Move" if current_eval_info is not None else "Unevaluated",
         "risk_prob": 0.0,
         "blunder_risk_pct": 0.0,
         "best_move": "-",
@@ -136,8 +136,8 @@ def analyze_game_pipeline(
         uci_str = move.uci()
         board.push(move)
 
-        cp_loss = 0
-        cp_eval_white = 0
+        cp_loss: Optional[int] = None
+        cp_eval_white: Optional[int] = None
         next_eval_info: Optional[chess.engine.InfoDict] = None
 
         if engine is not None:
@@ -156,7 +156,7 @@ def analyze_game_pipeline(
                 next_eval_info = None
 
         current_eval_info = next_eval_info
-        label = classify_move(cp_loss)
+        label = classify_move(cp_loss) if cp_loss is not None else "Unevaluated"
 
         node: dict[str, Any] = {
             "ply": ply_idx,

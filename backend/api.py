@@ -165,7 +165,7 @@ class PgnAnalysisRequest(BaseModel):
     pgn: str = Field(..., description="Full PGN string of the game")
 
 
-def _run_pipeline(pgn_text: str, model: Any) -> tuple[dict[str, str], list[dict[str, Any]]]:
+def _run_pipeline(pgn_text: str, model: Any) -> tuple[dict[str, str], list[dict[str, Any]], bool]:
     engine = None
     if STOCKFISH_PATH.is_file():
         try:
@@ -174,9 +174,11 @@ def _run_pipeline(pgn_text: str, model: Any) -> tuple[dict[str, str], list[dict[
         except Exception as e:
             logger.warning(f"Stockfish engine error: {e}")
             engine = None
-            
+
+    engine_available = engine is not None
     try:
-        return analyze_game_pipeline(pgn_text, engine=engine, model=model)
+        headers, positions = analyze_game_pipeline(pgn_text, engine=engine, model=model)
+        return headers, positions, engine_available
     finally:
         if engine:
             try:
@@ -191,7 +193,7 @@ async def analyze_pgn_endpoint(req: PgnAnalysisRequest):
         raise HTTPException(status_code=400, detail="PGN cannot be empty")
         
     try:
-        headers, positions = await asyncio.to_thread(
+        headers, positions, engine_available = await asyncio.to_thread(
             _run_pipeline,
             req.pgn,
             ml_models.get("model")
@@ -223,6 +225,7 @@ async def analyze_pgn_endpoint(req: PgnAnalysisRequest):
     narrative = build_narrative(headers, white_stats, black_stats, w_err, b_err)
 
     return {
+        "engine_available": engine_available,
         "headers": headers,
         "positions": positions,
         "summary": {
