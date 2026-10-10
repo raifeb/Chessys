@@ -7,11 +7,31 @@ ARTIFACTS_DIR: Path = ROOT_DIR / "artifacts"
 BIN_DIR: Path = ROOT_DIR / "bin"
 DATA_DIR: Path = ROOT_DIR / "data"
 
-STOCKFISH_PATH: Path = (
-    BIN_DIR / "stockfish-windows-x86-64-avx2.exe"
-    if (BIN_DIR / "stockfish-windows-x86-64-avx2.exe").is_file()
-    else ROOT_DIR.parent / "bin" / "stockfish-windows-x86-64-avx2.exe"
-)
+def resolve_stockfish_path() -> Path:
+    env_path = os.getenv("STOCKFISH_PATH")
+    if env_path:
+        return Path(env_path)
+
+    default_linux_path = BIN_DIR / "stockfish"
+    for candidate in (
+        default_linux_path,
+        Path("/usr/games/stockfish"),
+        Path("/usr/local/bin/stockfish"),
+    ):
+        if candidate.is_file():
+            return candidate
+
+    for win_candidate in (
+        BIN_DIR / "stockfish-windows-x86-64-avx2.exe",
+        ROOT_DIR.parent / "bin" / "stockfish-windows-x86-64-avx2.exe",
+    ):
+        if win_candidate.is_file():
+            return win_candidate
+
+    return default_linux_path
+
+
+STOCKFISH_PATH: Path = resolve_stockfish_path()
 MODEL_PATH: Path = ARTIFACTS_DIR / "blunder_calibrated.joblib"
 FEATURE_NAMES_PATH: Path = ARTIFACTS_DIR / "feature_names.json"
 
