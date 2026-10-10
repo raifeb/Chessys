@@ -4,7 +4,7 @@ pydantic==2.7.4
 python-chess==1.999
 numpy==1.26.4
 pandas==2.2.2
-scikit-learn==1.4.2
-xgboost==2.0.3
+scikit-learn==1.9.0
+xgboost==3.3.0
 joblib==1.4.2
 
