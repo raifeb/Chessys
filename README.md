@@ -8,9 +8,9 @@ CHESSYS is a chess analysis web application and machine learning pipeline that e
 - **PGN Match Analysis**: Upload a `.pgn` game file or load a built-in demo match (Adolf Anderssen vs. Lionel Kieseritzky, 1851) to analyze an entire game.
 - **Move Navigation**: Step through moves using playback buttons, a timeline slider, the move notation list, or by clicking nodes directly on the telemetry charts.
 - **Dual Telemetry Charts**: Visualizes evaluation advantage (in pawns) and blunder risk percentage across every ply using synchronized charts.
-- **Tactical Complexity Metrics**: Computes center tension, hanging pieces, material balance, and move quality labels (Best Move, Good, Inaccuracy, Mistake, Blunder).
+- **Tactical Complexity Metrics**: Computes center tension, hanging pieces, material balance, and move quality labels (`Best Move`, `Good`, `Inaccuracy`, `Mistake`, `Blunder`, or `Unevaluated` when running without Stockfish).
 - **Post-Match Summary**: Displays player accuracy percentages, Average Centipawn Loss (ACPL), error distribution across phases (Opening, Middlegame, Endgame), and an algorithmic match summary narrative.
-- **Stockfish Engine Integration**: Evaluates positions and computes centipawn loss via UCI protocol when the Stockfish binary is present, with graceful fallback to ML-only mode if unavailable.
+- **Stockfish Engine Integration**: Evaluates positions and computes centipawn loss via UCI protocol when the Stockfish binary is present, with explicit ML-only fallback (`engine_available: false`, `cp_loss: null`, `accuracy: null`, `acpl: null`) if unavailable.
 
 ## Tech Stack
 
@@ -29,18 +29,20 @@ CHESSYS is a chess analysis web application and machine learning pipeline that e
 - **Server**: Uvicorn
 - **Data Validation**: Pydantic v2
 - **Chess Library**: `python-chess` (board representation, move generation, attack detection, PGN parsing, UCI engine communication)
-- **Chess Engine**: Stockfish (optional local UCI binary)
+- **Chess Engine**: Stockfish 17 (UCI binary, configurable via `STOCKFISH_PATH`)
+- **Testing**: Pytest (`tests/`)
+- **Containerization**: Docker (`python:3.12-slim` with pinned Stockfish 17 Linux AVX2 binary)
 
 ### Machine Learning
-- **Model**: XGBoost (`XGBClassifier`)
-- **Calibration**: Scikit-learn (`CalibratedClassifierCV` with Platt scaling / Sigmoid)
+- **Model**: XGBoost (`XGBClassifier`, `xgboost==3.3.0`)
+- **Calibration**: Scikit-learn (`CalibratedClassifierCV` with Platt scaling / Sigmoid, `scikit-learn==1.9.0`)
 - **Data Processing**: Pandas, NumPy
 - **Serialization**: Joblib
 - **Exploration & Training**: Jupyter Notebooks
 
 ## Architecture
 
-```
+```text
 Frontend (React + Vite)
        │
        │ HTTP / JSON
@@ -59,7 +61,7 @@ Backend API (FastAPI)
 ├── backend/
 │   ├── api.py               # FastAPI application and route definitions
 │   ├── config.py            # Engine, paths, and threshold configurations
-│   ├── requirements.txt     # Python backend dependencies
+│   ├── requirements.txt     # Pinned Python backend dependencies
 │   ├── artifacts/
 │   │   ├── blunder_calibrated.joblib  # Production calibrated model
 │   │   ├── blunder_xgb_raw.joblib     # Base trained XGBoost model
@@ -96,7 +98,10 @@ Backend API (FastAPI)
 │   ├── 2_preprocess.ipynb   # Feature extraction and dataset partitioning
 │   ├── 3_model.ipynb        # Model training, class weighting, and threshold tuning
 │   └── 4_eval.ipynb         # Probability calibration and Brier score evaluation
+├── tests/                   # Automated pytest suite (unit, API, and golden-file tests)
 ├── bin/                     # Local Stockfish executable directory (optional)
+├── Dockerfile               # Backend Docker image definition
+├── .dockerignore            # Docker build context exclusions
 └── README.md
 ```
 
@@ -105,13 +110,11 @@ Backend API (FastAPI)
 ### Prerequisites
 - Python 3.10+ (tested on Python 3.12)
 - Node.js 18+ and npm
-- *(Optional)* Stockfish binary placed in `bin/` or `backend/bin/` (e.g. `stockfish-windows-x86-64-avx2.exe`)
+- *(Optional)* Stockfish binary configured via `STOCKFISH_PATH` environment variable, or placed in `backend/bin/stockfish` (Linux) / `bin/stockfish-windows-x86-64-avx2.exe` (Windows)
 
-### 1. Backend Setup
+### 1. Backend Setup (Local)
 
 ```bash
-cd backend
-
 # Create and activate a virtual environment
 python -m venv venv
 
@@ -121,15 +124,34 @@ venv\Scripts\activate
 source venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
 # Start the API server
+cd backend
 uvicorn api:app --reload --port 8000
 ```
 
 The backend server runs at `http://localhost:8000`. Interactive OpenAPI documentation is accessible at `http://localhost:8000/docs`.
 
-### 2. Frontend Setup
+#### Environment Variables (Optional)
+| Variable | Default | Description |
+|---|---|---|
+| `STOCKFISH_PATH` | Auto-resolved (`backend/bin/stockfish` on Linux, fallback to `bin/stockfish-windows-x86-64-avx2.exe` on Windows) | Path to Stockfish UCI binary |
+| `STOCKFISH_DEPTH` | `10` | Search depth per position |
+| `STOCKFISH_THREADS` | `1` | UCI engine threads |
+| `STOCKFISH_HASH_MB` | `32` | UCI hash table size in MB |
+
+### 2. Backend Setup (Docker)
+
+```bash
+# Build the backend image (includes Stockfish 17 Linux AVX2)
+docker build -t chessys-backend .
+
+# Run the container on port 8000
+docker run -d --name chessys-api -p 8000:8000 chessys-backend
+```
+
+### 3. Frontend Setup
 
 In a separate terminal:
 
@@ -151,16 +173,26 @@ To create a production build:
 npm run build
 ```
 
+### 4. Running Tests
+
+From the repository root with the virtual environment activated:
+
+```bash
+pytest tests/ -v
+```
+
 ## API
 
-The backend exposes three REST endpoints:
+The backend exposes four REST endpoints:
 
+- `GET /health`
+  Returns service readiness status: `{"status": "ok", "engine_available": bool, "model_loaded": bool}`.
 - `POST /api/evaluate`
-  Evaluates a single board position from a FEN string, player Elo rating, and ply count. Returns the predicted blunder probability, binary blunder decision, and the 12 extracted tactical features.
+  Evaluates a single board position from a FEN string, player Elo rating, and ply count. Returns the predicted blunder probability, binary blunder decision, and extracted tactical telemetry metrics.
 - `POST /api/evaluate/batch`
   Evaluates an array of FEN strings in a single request. Returns predictions and extracted features for each position.
 - `POST /api/analyze-pgn`
-  Receives a full PGN string and runs the end-to-end game pipeline. Returns parsed game headers, ply-by-ply evaluations (centipawn loss, move classification, best move, and blunder risk), and aggregated post-match summary statistics.
+  Receives a full PGN string and runs the end-to-end game pipeline. Returns `engine_available`, parsed game `headers`, ply-by-ply `positions` (centipawn loss capped at `1000`, move classification, best move, and blunder risk), and aggregated post-match `summary` statistics (`acpl`, `accuracy`, phase errors, and narrative).
 
 ## Machine Learning
 
@@ -184,9 +216,3 @@ The model operates on 12 deterministic features extracted from the board state u
 - **Class Imbalance**: Managed using positive class weighting (`scale_pos_weight`) during training.
 - **Threshold Optimization**: Decision threshold tuned on the validation set targeting $F_2$-score to prioritize blunder detection.
 - **Probability Calibration**: Calibrated using Platt Scaling (`CalibratedClassifierCV(method='sigmoid', cv=5)`), achieving a Brier score of ~0.088 on the test set.
-
-## Current Status
-
-- Core telemetry, board interaction, and PGN analysis workflows are fully functional.
-- Stockfish evaluation is operational when the binary is present; fallback to ML-only mode is supported.
-- Model artifacts (`blunder_calibrated.joblib`, `model_config.json`, `feature_names.json`) are checked in under `backend/artifacts/`.
