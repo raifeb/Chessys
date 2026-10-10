@@ -53,6 +53,7 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Could not initialize Stockfish engine: {err}")
             engine_state["engine"] = None
     else:
+        engine_state["engine"] = None
         logger.info("Stockfish binary not found, running with ML-only mode.")
 
     yield
@@ -63,6 +64,7 @@ async def lifespan(app: FastAPI):
             engine_state["engine"].quit()
         except Exception:
             pass
+        engine_state["engine"] = None
     ml_models.clear()
 
 
@@ -75,6 +77,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "ok",
+        "engine_available": engine_state.get("engine") is not None,
+        "model_loaded": ml_models.get("model") is not None,
+    }
 
 
 class EvaluationRequest(BaseModel):
