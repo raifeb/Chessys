@@ -58,3 +58,4 @@ def test_model_loads_without_inconsistent_version_warning_and_matches_golden():
         assert abs(actual - expected) < 1e-6, (
             f"Row {idx} mismatch: actual={actual} vs expected={expected}"
         )
+
